@@ -3,10 +3,10 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: function-role-binding
-  namespace: kubeless
+  namespace: kubeless-new
 subjects:
 - kind: User
-  name: employee
+  name: employee-new
   apiGroup: ""
 roleRef:
   kind: Role
@@ -18,7 +18,7 @@ roleRef:
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  namespace: kubeless
+  namespace: kubeless-new
   name: function-role-kubeless
 rules:
 - apiGroups: ["k8s.io", "apps", "", "extensions"]

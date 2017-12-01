@@ -19,6 +19,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -69,7 +70,12 @@ type Config struct {
 func New(cfg Config) *Controller {
 	// lw := cache.NewListWatchFromClient(cfg.CRDClient, "functions", api.NamespaceAll, fields.Everything())
 
-	lw := cache.NewListWatchFromClient(cfg.CRDClient, "functions", "kubeless", fields.Everything())
+	// Creating a controller valid for a namespace
+	// It will fetch from environment variable "NAMESPACE"
+	namespace := os.Getenv("NAMESPACE")
+	logrus.Info("+++++++++++++++++NAMESPACE++++++++++++++++++++++")
+	logrus.Info("+++++++++++++++++++" + namespace + "++++++++++++++++++++")
+	lw := cache.NewListWatchFromClient(cfg.CRDClient, "functions", namespace, fields.Everything())
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 

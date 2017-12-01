@@ -152,6 +152,9 @@ spec:
       - image: shazra/kubeless-controller
         imagePullPolicy: Always
         name: kubeless-controller
+        env:
+          - name: NAMESPACE
+            value: "kubeless"
       serviceAccountName: controller-acct
 ---
 apiVersion: v1
