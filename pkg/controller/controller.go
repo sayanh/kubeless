@@ -67,7 +67,9 @@ type Config struct {
 
 // New initializes a controller object
 func New(cfg Config) *Controller {
-	lw := cache.NewListWatchFromClient(cfg.CRDClient, "functions", api.NamespaceAll, fields.Everything())
+	// lw := cache.NewListWatchFromClient(cfg.CRDClient, "functions", api.NamespaceAll, fields.Everything())
+
+	lw := cache.NewListWatchFromClient(cfg.CRDClient, "functions", "kubeless", fields.Everything())
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
@@ -190,22 +192,26 @@ func (c *Controller) ensureK8sResources(funcObj *spec.Function) error {
 
 	err := utils.EnsureFuncConfigMap(c.clientset, funcObj, or)
 	if err != nil {
+		logrus.Error(" Exception " + err.Error())
 		return err
 	}
 
 	err = utils.EnsureFuncService(c.clientset, funcObj, or)
 	if err != nil {
+		logrus.Error(" Exception " + err.Error())
 		return err
 	}
 
 	err = utils.EnsureFuncDeployment(c.clientset, funcObj, or)
 	if err != nil {
+		logrus.Error(" Exception " + err.Error())
 		return err
 	}
 
 	if funcObj.Spec.Type == "Scheduled" {
 		err = utils.EnsureFuncCronJob(c.clientset, funcObj, or)
 		if err != nil {
+			logrus.Error(" Exception " + err.Error())
 			return err
 		}
 	}

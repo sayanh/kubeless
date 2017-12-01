@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strings"
 
@@ -130,6 +131,7 @@ var deployCmd = &cobra.Command{
 		defaultFunctionSpec := spec.Function{}
 		defaultFunctionSpec.Spec.Type = "HTTP"
 		f, err := getFunctionDescription(cli, funcName, ns, handler, file, funcDeps, runtime, topic, schedule, runtimeImage, mem, timeout, triggerHTTP, envs, labels, defaultFunctionSpec)
+		fmt.Println("Namespace::  " + f.GetObjectMeta().GetNamespace())
 		if err != nil {
 			logrus.Fatal(err)
 		}

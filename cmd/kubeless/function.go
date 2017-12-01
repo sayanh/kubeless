@@ -136,6 +136,8 @@ func getFunctionDescription(cli kubernetes.Interface, funcName, ns, handler, fil
 		handler = defaultFunction.Spec.Handler
 	}
 
+	fmt.Println("Namespace ::: " + ns)
+
 	var function, checksum, contentType string
 	if file == "" {
 		contentType = defaultFunction.Spec.FunctionContentType

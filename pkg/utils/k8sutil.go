@@ -129,6 +129,7 @@ func GetRestClient() (*rest.RESTClient, error) {
 // GetCRDClient returns crd client to the request from inside of cluster
 func GetCRDClient() (*rest.RESTClient, error) {
 	config, err := rest.InClusterConfig()
+	logrus.Info("config.APIPath::: " + config.APIPath)
 	if err != nil {
 		return nil, err
 	}

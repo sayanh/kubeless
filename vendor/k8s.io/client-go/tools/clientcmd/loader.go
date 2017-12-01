@@ -188,7 +188,6 @@ func (rules *ClientConfigLoadingRules) Load() (*clientcmdapi.Config, error) {
 			// no work to do
 			continue
 		}
-
 		config, err := LoadFromFile(filename)
 		if os.IsNotExist(err) {
 			// skip missing files
