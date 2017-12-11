@@ -18,6 +18,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -38,6 +39,7 @@ func newRootCmd() *cobra.Command {
 
 func main() {
 	cmd := newRootCmd()
+	fmt.Println("Cli starts here!!!")
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
