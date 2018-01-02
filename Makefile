@@ -5,7 +5,7 @@ VERSION = dev-$(shell date +%FT%T%z)
 
 KUBECFG = kubecfg
 DOCKER = docker
-CONTROLLER_IMAGE = kubeless-controller:latest
+CONTROLLER_IMAGE = automatix/kubeless-controller:ysf-547
 OS = linux
 ARCH = amd64
 BUNDLES = bundles
@@ -53,6 +53,7 @@ controller-build:
 
 controller-image: docker/controller
 	$(DOCKER) build -t $(CONTROLLER_IMAGE) $<
+	$(DOCKER) push $(CONTROLLER_IMAGE)
 
 test:
 	$(GO) test $(GO_FLAGS) $(GO_PACKAGES)

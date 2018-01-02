@@ -552,7 +552,7 @@ func EnsureFuncService(client kubernetes.Interface, funcObj *spec.Function, or [
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
-					Name:       "function-port",
+					Name:       "http-function-port",
 					Port:       8080,
 					TargetPort: intstr.FromInt(8080),
 					NodePort:   0,
@@ -600,12 +600,16 @@ func EnsureFuncDeployment(client kubernetes.Interface, funcObj *spec.Function, o
 		"prometheus.io/port":   "8080",
 	}
 
+	annotations := make(map[string]string)
+	annotations["sidecar.istio.io/inject"] = "true"
+
 	//add deployment
 	maxUnavailable := intstr.FromInt(0)
 	dpm := &v1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            funcObj.Metadata.Name,
 			Labels:          funcObj.Metadata.Labels,
+			Annotations:     annotations,
 			OwnerReferences: or,
 		},
 		Spec: v1beta1.DeploymentSpec{
@@ -775,16 +779,19 @@ func EnsureFuncDeployment(client kubernetes.Interface, funcObj *spec.Function, o
 		}
 		dpm.Spec.Template.Spec.Containers[0].LivenessProbe = livenessProbe
 	}
-
+	fmt.Println("#############################  dpm::: definition!!!!", dpm)
 	_, err = client.Extensions().Deployments(funcObj.Metadata.Namespace).Create(dpm)
 	if err != nil && k8sErrors.IsAlreadyExists(err) {
 		// In case the Deployment already exists we should update
 		// just certain fields (to avoid race conditions)
+		fmt.Println("#############################  deployment exists!!!!", err)
+
 		var newDpm *v1beta1.Deployment
 		newDpm, err = client.Extensions().Deployments(funcObj.Metadata.Namespace).Get(funcObj.Metadata.Name, metav1.GetOptions{})
 		newDpm.ObjectMeta.Labels = funcObj.Metadata.Labels
 		newDpm.ObjectMeta.OwnerReferences = or
 		newDpm.Spec = dpm.Spec
+		fmt.Println("#############################  new dpm::: definition!!!!", newDpm)
 		_, err = client.Extensions().Deployments(funcObj.Metadata.Namespace).Update(newDpm)
 		if err != nil {
 			return err
@@ -962,7 +969,7 @@ func CreateServiceMonitor(smclient monitoringv1alpha1.MonitoringV1alpha1Client, 
 					},
 					Endpoints: []monitoringv1alpha1.Endpoint{
 						{
-							Port: "function-port",
+							Port: "http",
 						},
 					},
 				},

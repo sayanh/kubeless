@@ -1,0 +1,23 @@
+minikube start --cpus 4 --memory 4096 --kubernetes-version v1.8.6 --vm-driver virtualbox --bootstrapper kubeadm --extra-config=apiserver.authorization-mode=RBAC --extra-config=apiserver.admission-control="NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,ResourceQuota,DefaultTolerationSeconds,GenericAdmissionWebhook,PodPreset,Initializers" --extra-config=apiserver.runtime-config=api/all=true
+
+Create a funtion
+----------------
+kubeless function deploy testjs --runtime nodejs8 --handler hello.foo --from-file hello.js --trigger-http
+
+
+Sample Ingress
+----------------
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: simple-ingress-2
+  annotations:
+    kubernetes.io/ingress.class: istio
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /example/.*
+        backend:
+          serviceName: testjs
+          servicePort: 8080

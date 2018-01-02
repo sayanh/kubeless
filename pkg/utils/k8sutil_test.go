@@ -202,7 +202,7 @@ func TestEnsureService(t *testing.T) {
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
-					Name:       "function-port",
+					Name:       "http-function-port",
 					Port:       8080,
 					TargetPort: intstr.FromInt(8080),
 					NodePort:   0,
@@ -290,10 +290,14 @@ func TestEnsureDeployment(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
+	annotations := make(map[string]string)
+	annotations["sidecar.istio.io/inject"] = "true"
+
 	expectedObjectMeta := metav1.ObjectMeta{
 		Name:            f1Name,
 		Namespace:       ns,
 		Labels:          funcLabels,
+		Annotations:     annotations,
 		OwnerReferences: or,
 	}
 	if !reflect.DeepEqual(dpm.ObjectMeta, expectedObjectMeta) {

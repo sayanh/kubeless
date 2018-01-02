@@ -72,6 +72,9 @@ type Config struct {
 func New(cfg Config, smclient *monitoringv1alpha1.MonitoringV1alpha1Client) *Controller {
 	lw := cache.NewListWatchFromClient(cfg.CRDClient, "functions", api.NamespaceAll, fields.Everything())
 
+	fmt.Println("#################")
+	fmt.Println("#######  lw::  #######", lw)
+
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	informer := cache.NewSharedIndexInformer(
@@ -200,6 +203,8 @@ func (c *Controller) ensureK8sResources(funcObj *spec.Function) error {
 		funcObj.Metadata.Labels = make(map[string]string)
 	}
 	funcObj.Metadata.Labels["function"] = funcObj.Metadata.Name
+	funcObj.Metadata.Annotations = make(map[string]string)
+	funcObj.Metadata.Annotations["sidecar.istio.io/inject"] = "true"
 
 	or, err := utils.GetOwnerReference(funcObj)
 	if err != nil {
