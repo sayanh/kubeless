@@ -39,12 +39,8 @@ type FunctionSpec struct {
 	FunctionContentType     string                          `json:"function-content-type"` // Function file content type (plain text, base64 or zip)
 	Checksum                string                          `json:"checksum"`              // Checksum of the file
 	Runtime                 string                          `json:"runtime"`               // Function runtime to use
-	Type                    string                          `json:"type"`                  // Function trigger type
-	Topic                   string                          `json:"topic"`                 // Function topic trigger (for PubSub type)
-	Schedule                string                          `json:"schedule"`              // Function scheduled time (for Schedule type)
 	Timeout                 string                          `json:"timeout"`               // Maximum timeout for the function to complete its execution
 	Deps                    string                          `json:"deps"`                  // Function dependencies
-	ServiceSpec             v1.ServiceSpec                  `json:"service"`
 	Template                v1.PodTemplateSpec              `json:"template" protobuf:"bytes,3,opt,name=template"`
 	HorizontalPodAutoscaler v2beta1.HorizontalPodAutoscaler `json:"horizontalPodAutoscaler" protobuf:"bytes,3,opt,name=horizontalPodAutoscaler"`
 }
