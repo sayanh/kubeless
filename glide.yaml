@@ -9,7 +9,7 @@ import:
     - plugin/pkg/client/auth/gcp
   version: v5.0.0
 - package: k8s.io/api
-  version: fe29995db37613b9c5b2a647544cf627bfa8d299
+  version: kubernetes-1.8.7
 - package: k8s.io/code-generator
   version: master
 - package: k8s.io/gengo
