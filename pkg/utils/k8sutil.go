@@ -50,6 +50,7 @@ import (
 	// Adding explicitely the GCP auth plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"github.com/ghodss/yaml"
 	"github.com/imdario/mergo"
 	"github.com/kubeless/kubeless/pkg/client/clientset/versioned"
 )
@@ -549,12 +550,20 @@ func EnsureFuncDeployment(client kubernetes.Interface, funcObj *kubelessApi.Func
 	dpm.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: funcObj.ObjectMeta.Labels,
 	}
-
-	dpm.Spec.Strategy = v1beta1.DeploymentStrategy{
-		RollingUpdate: &v1beta1.RollingUpdateDeployment{
-			MaxUnavailable: &maxUnavailable,
-		},
+	temp, _ := yaml.Marshal(&dpm)
+	logrus.Printf("Before deployment:::: %v", string(temp))
+	if &dpm.Spec.Strategy == nil {
+		logrus.Println("################ are we here? ##########################:::")
+		dpm.Spec.Strategy = v1beta1.DeploymentStrategy{
+			RollingUpdate: &v1beta1.RollingUpdateDeployment{
+				MaxUnavailable: &maxUnavailable,
+			},
+		}
 	}
+
+	logrus.Println("##########################################:::")
+	temp, _ = yaml.Marshal(&dpm)
+	logrus.Printf("After deployment:::: %v", string(temp))
 
 	//append data to dpm deployment
 	if len(dpm.ObjectMeta.Labels) == 0 {
@@ -635,6 +644,10 @@ func EnsureFuncDeployment(client kubernetes.Interface, funcObj *kubelessApi.Func
 			v1.EnvVar{
 				Name:  "FUNC_TIMEOUT",
 				Value: timeout,
+			},
+			v1.EnvVar{
+				Name:  "FUNC_SHA",
+				Value: funcObj.Spec.Checksum,
 			},
 		)
 	}
@@ -738,13 +751,53 @@ func EnsureFuncDeployment(client kubernetes.Interface, funcObj *kubelessApi.Func
 	if err != nil && k8sErrors.IsAlreadyExists(err) {
 		// In case the Deployment already exists we should update
 		// just certain fields (to avoid race conditions)
+		logrus.Print("DPM already exists!!!!")
 		var newDpm *v1beta1.Deployment
 		newDpm, err = client.ExtensionsV1beta1().Deployments(funcObj.ObjectMeta.Namespace).Get(funcObj.ObjectMeta.Name, metav1.GetOptions{})
 		newDpm.ObjectMeta.Labels = funcObj.ObjectMeta.Labels
 		newDpm.ObjectMeta.Annotations = funcObj.Spec.Deployment.ObjectMeta.Annotations
 		newDpm.ObjectMeta.OwnerReferences = or
 		newDpm.Spec = dpm.Spec
-		_, err = client.ExtensionsV1beta1().Deployments(funcObj.ObjectMeta.Namespace).Update(newDpm)
+		// byteNewDpm, _ := json.Marshal(newDpm)
+		// tempDpm := "{\"spec\":{\"template\":{\"spec\":{\"$setElementOrder/containers\":[{\"name\":\"testjs\"}],\"containers\":[{\"$setElementOrder/env\":[{\"name\":\"foo\"},{\"name\":\"FUNC_HANDLER\"},{\"name\":\"MOD_NAME\"},{\"name\":\"FUNC_TIMEOUT\"},{\"name\":\"FUNC_PORT\"},{\"name\":\"TOPIC_NAME\"}],\"env\":[{\"name\":\"foo\",\"value\":\"bar123\"}],\"name\":\"testjs\"}]}}}}"
+
+		// tempDpm := `{"spec": {"template": {"spec": {"$setElementOrder/containers": [{"name": "testjs"}],"containers": [{"$setElementOrder/env": [{"name": "FUNC_HANDLER"}, {"name": "MOD_NAME"}, {"name": "FUNC_TIMEOUT"}, {"name": "FUNC_PORT"}, {"name": "TOPIC_NAME"}, {"name": "FUNC_SHA"}],"env": [{"name": "FUNC_SHA","value": "` + funcObj.Spec.Checksum + `"}],"name": "testjs"}]}}}}`
+		tempDpm := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"template": map[string]interface{}{
+					"spec": map[string]interface{}{
+						"$setElementOrder/containers": []map[string]string{
+							{"name": "testjs"},
+						},
+						"containers": []map[string]interface{}{
+							{
+								"$setElementOrder/env": []map[string]string{
+									{"name": "FUNC_HANDLER"},
+									{"name": "MOD_NAME"},
+									{"name": "FUNC_TIMEOUT"},
+									{"name": "FUNC_PORT"},
+									{"name": "TOPIC_NAME"},
+									{"name": "FUNC_SHA"},
+								},
+								"env": []map[string]string{
+									{"name": "FUNC_SHA"},
+									{"value": funcObj.Spec.Checksum},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		logrus.Println(tempDpm)
+		tempDpmByte, _ := json.Marshal(tempDpm)
+
+		// tempDpmByte, _ := json.Marshal(newDpm)
+
+		logrus.Printf("Final deployment json:::\n%v\n", string(tempDpmByte))
+
+		_, err = client.ExtensionsV1beta1().Deployments(funcObj.ObjectMeta.Namespace).Patch(newDpm.Name, types.StrategicMergePatchType, tempDpmByte)
+		// _, err = client.ExtensionsV1beta1().Deployments(funcObj.ObjectMeta.Namespace).Update(newDpm)
 		if err != nil {
 			return err
 		}
