@@ -553,14 +553,12 @@ func EnsureFuncDeployment(client kubernetes.Interface, funcObj *kubelessApi.Func
 	temp, _ := yaml.Marshal(&dpm)
 	logrus.Printf("Before deployment:::: %v", string(temp))
 	if &dpm.Spec.Strategy == nil {
-		logrus.Println("################ are we here? ##########################:::")
 		dpm.Spec.Strategy = v1beta1.DeploymentStrategy{
 			RollingUpdate: &v1beta1.RollingUpdateDeployment{
 				MaxUnavailable: &maxUnavailable,
 			},
 		}
 	}
-
 	logrus.Println("##########################################:::")
 	temp, _ = yaml.Marshal(&dpm)
 	logrus.Printf("After deployment:::: %v", string(temp))
@@ -758,33 +756,117 @@ func EnsureFuncDeployment(client kubernetes.Interface, funcObj *kubelessApi.Func
 		newDpm.ObjectMeta.Annotations = funcObj.Spec.Deployment.ObjectMeta.Annotations
 		newDpm.ObjectMeta.OwnerReferences = or
 		newDpm.Spec = dpm.Spec
-		// byteNewDpm, _ := json.Marshal(newDpm)
-		// tempDpm := "{\"spec\":{\"template\":{\"spec\":{\"$setElementOrder/containers\":[{\"name\":\"testjs\"}],\"containers\":[{\"$setElementOrder/env\":[{\"name\":\"foo\"},{\"name\":\"FUNC_HANDLER\"},{\"name\":\"MOD_NAME\"},{\"name\":\"FUNC_TIMEOUT\"},{\"name\":\"FUNC_PORT\"},{\"name\":\"TOPIC_NAME\"}],\"env\":[{\"name\":\"foo\",\"value\":\"bar123\"}],\"name\":\"testjs\"}]}}}}"
+		var newEnvs []v1.EnvVar
+		var setEnvElemMap []map[string]string
+		for i := range newDpm.Spec.Template.Spec.Containers[0].Env {
+			if len(newDpm.Spec.Template.Spec.Containers[0].Env[i].Name) != 0 && len(newDpm.Spec.Template.Spec.Containers[0].Env[i].Value) != 0 {
+				if newDpm.Spec.Template.Spec.Containers[0].Env[i].Name == "FUNC_SHA" {
+					tempCheckSum := v1.EnvVar{
+						Name:  "FUNC_SHA",
+						Value: funcObj.Spec.Checksum,
+					}
+					newEnvs = append(newEnvs, tempCheckSum)
+				} else {
+					newEnvs = append(newEnvs, newDpm.Spec.Template.Spec.Containers[0].Env[i])
+				}
+			}
+		}
 
-		// tempDpm := `{"spec": {"template": {"spec": {"$setElementOrder/containers": [{"name": "testjs"}],"containers": [{"$setElementOrder/env": [{"name": "FUNC_HANDLER"}, {"name": "MOD_NAME"}, {"name": "FUNC_TIMEOUT"}, {"name": "FUNC_PORT"}, {"name": "TOPIC_NAME"}, {"name": "FUNC_SHA"}],"env": [{"name": "FUNC_SHA","value": "` + funcObj.Spec.Checksum + `"}],"name": "testjs"}]}}}}`
+		for i := range newEnvs {
+			temp := map[string]string{
+				"name": newEnvs[i].Name,
+			}
+			setEnvElemMap = append(setEnvElemMap, temp)
+		}
+		memQuantity := funcObj.Spec.Deployment.Spec.Template.Spec.Containers[0].Resources.Limits.Memory()
+		cpuQuantity := funcObj.Spec.Deployment.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu()
+		image := ""
+
+		if len(funcObj.Spec.Deployment.Spec.Template.Spec.Containers[0].Image) == 0 {
+			image = newDpm.Spec.Template.Spec.Containers[0].Image
+		} else {
+			image = funcObj.Spec.Deployment.Spec.Template.Spec.Containers[0].Image
+		}
+
+		var volumeNames []map[string]string
+		if len(funcObj.Spec.Deployment.Spec.Template.Spec.Volumes) != 0 {
+			for i := range funcObj.Spec.Deployment.Spec.Template.Spec.Volumes {
+				volumeNames = append(volumeNames, map[string]string{
+					"name": funcObj.Spec.Deployment.Spec.Template.Spec.Volumes[i].Name,
+				})
+			}
+		}
+
+		var volumeMountsElem []map[string]string
+		if len(funcObj.Spec.Deployment.Spec.Template.Spec.Containers[0].VolumeMounts) != 0 {
+			for i := range funcObj.Spec.Deployment.Spec.Template.Spec.Containers[0].VolumeMounts {
+				volumeNames = append(volumeMountsElem, map[string]string{
+					"name": funcObj.Spec.Deployment.Spec.Template.Spec.Containers[0].VolumeMounts[i].Name,
+				})
+			}
+		}
+		// var newVol string
+
+		// TODO: Subtract list of volumes in new Dpm from new Function to find the new one
+
 		tempDpm := map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"labels": funcObj.ObjectMeta.Labels,
+			},
+
 			"spec": map[string]interface{}{
 				"template": map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"labels": funcObj.ObjectMeta.Labels,
+					},
 					"spec": map[string]interface{}{
+						"$setElementOrder/initContainers": []map[string]string{
+							{"name": "prepare"},
+						},
+						// "$setElementOrder/volumes": volumeNames,
+						// "volumes": []map[string]interface{}{
+						// 	{
+						// 		"$retainKeys": []string{"name", "secret"},
+						// 		"name":        funcObj.Spec.Deployment.Spec.Template.Spec.Volumes[len(funcObj.Spec.Deployment.Spec.Template.Spec.Volumes)-1].Name + "-temp",
+						// 		"secret": map[string]string{
+						// 			"secretName": funcObj.Spec.Deployment.Spec.Template.Spec.Volumes[len(funcObj.Spec.Deployment.Spec.Template.Spec.Volumes)-1].Secret.SecretName,
+						// 		},
+						// 	},
+						// },
 						"$setElementOrder/containers": []map[string]string{
-							{"name": "testjs"},
+							{"name": newDpm.Spec.Template.Spec.Containers[0].Name},
 						},
 						"containers": []map[string]interface{}{
 							{
-								"$setElementOrder/env": []map[string]string{
-									{"name": "FUNC_HANDLER"},
-									{"name": "MOD_NAME"},
-									{"name": "FUNC_TIMEOUT"},
-									{"name": "FUNC_PORT"},
-									{"name": "TOPIC_NAME"},
-									{"name": "FUNC_SHA"},
+								"$setElementOrder/env": setEnvElemMap,
+								"env":   newEnvs,
+								"name":  newDpm.Spec.Template.Spec.Containers[0].Name,
+								"image": image,
+								"resources": v1.ResourceRequirements{
+									Limits: v1.ResourceList{
+										v1.ResourceMemory: *memQuantity,
+										v1.ResourceCPU:    *cpuQuantity,
+									},
+									Requests: v1.ResourceList{
+										v1.ResourceMemory: *memQuantity,
+										v1.ResourceCPU:    *cpuQuantity,
+									},
 								},
-								"env": []map[string]string{
-									{"name": "FUNC_SHA"},
-									{"value": funcObj.Spec.Checksum},
-								},
+								// "$setElementOrder/volumeMounts": volumeMountsElem,
+								// "volumeMounts":                  newVol,
+								//"volumeMounts": [{
+								// "mountPath": "/test-vol",
+								// "name": "test-vol"
+								// }]
 							},
 						},
+						//		"volumes": [{
+						//	"name": "test-vol",
+						//	"secret": {
+						//		"defaultMode": 420,
+						//		"secretName": "db-user-pass1"
+						//	}
+						//}]
 					},
 				},
 			},
@@ -792,12 +874,9 @@ func EnsureFuncDeployment(client kubernetes.Interface, funcObj *kubelessApi.Func
 		logrus.Println(tempDpm)
 		tempDpmByte, _ := json.Marshal(tempDpm)
 
-		// tempDpmByte, _ := json.Marshal(newDpm)
-
 		logrus.Printf("Final deployment json:::\n%v\n", string(tempDpmByte))
 
 		_, err = client.ExtensionsV1beta1().Deployments(funcObj.ObjectMeta.Namespace).Patch(newDpm.Name, types.StrategicMergePatchType, tempDpmByte)
-		// _, err = client.ExtensionsV1beta1().Deployments(funcObj.ObjectMeta.Namespace).Update(newDpm)
 		if err != nil {
 			return err
 		}
@@ -805,18 +884,18 @@ func EnsureFuncDeployment(client kubernetes.Interface, funcObj *kubelessApi.Func
 		// kick existing function pods then it will be recreated
 		// with the new data mount from updated configmap.
 		// TODO: This is a workaround.  Do something better.
-		var pods *v1.PodList
-		pods, err = GetPodsByLabel(client, funcObj.ObjectMeta.Namespace, "function", funcObj.ObjectMeta.Name)
-		if err != nil {
-			return err
-		}
-		for _, pod := range pods.Items {
-			err = client.Core().Pods(funcObj.ObjectMeta.Namespace).Delete(pod.Name, &metav1.DeleteOptions{})
-			if err != nil && !k8sErrors.IsNotFound(err) {
-				// non-fatal
-				logrus.Warnf("Unable to delete pod %s/%s, may be running stale version of function: %v", funcObj.ObjectMeta.Namespace, pod.Name, err)
-			}
-		}
+		// var pods *v1.PodList
+		// pods, err = GetPodsByLabel(client, funcObj.ObjectMeta.Namespace, "function", funcObj.ObjectMeta.Name)
+		// if err != nil {
+		// 	return err
+		// }
+		// for _, pod := range pods.Items {
+		// 	err = client.Core().Pods(funcObj.ObjectMeta.Namespace).Delete(pod.Name, &metav1.DeleteOptions{})
+		// 	if err != nil && !k8sErrors.IsNotFound(err) {
+		// 		// non-fatal
+		// 		logrus.Warnf("Unable to delete pod %s/%s, may be running stale version of function: %v", funcObj.ObjectMeta.Namespace, pod.Name, err)
+		// 	}
+		// }
 	}
 
 	return err

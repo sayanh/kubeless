@@ -20,9 +20,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"mime"
 	"net/http"
 	"net/url"
@@ -117,7 +119,6 @@ func NewRequest(client HTTPClient, verb string, baseURL *url.URL, versionedAPIPa
 		glog.V(2).Infof("Not implementing request backoff strategy.")
 		backoff = &NoBackoff{}
 	}
-
 	pathPrefix := "/"
 	if baseURL != nil {
 		pathPrefix = path.Join(pathPrefix, baseURL.Path)
@@ -363,9 +364,11 @@ func (r *Request) Body(obj interface{}) *Request {
 			return r
 		}
 		glogBody("Request Body", data)
+		log.Println("Request Body  as string::: " + t)
 		r.body = bytes.NewReader(data)
 	case []byte:
 		glogBody("Request Body", t)
+		log.Println("Request Body  as byte::: " + string(t))
 		r.body = bytes.NewReader(t)
 	case io.Reader:
 		r.body = t
@@ -380,11 +383,15 @@ func (r *Request) Body(obj interface{}) *Request {
 			return r
 		}
 		glogBody("Request Body", data)
+		log.Println("Request Body  as object::: " + string(data))
 		r.body = bytes.NewReader(data)
 		r.SetHeader("Content-Type", r.content.ContentType)
 	default:
 		r.err = fmt.Errorf("unknown type used for body: %+v", obj)
 	}
+	temp, _ := json.Marshal(r)
+	log.Printf("Full raw path:::::::::   \n %v \n", r.URL().RawPath)
+	log.Printf("Body:::::::::   \n %v \n", string(temp))
 	return r
 }
 
@@ -626,7 +633,10 @@ func (r *Request) request(fn func(*http.Request, *http.Response)) error {
 	retries := 0
 	for {
 		url := r.URL().String()
+		log.Println("(request) URL ::::   " + url)
+		log.Println("(request) verb ::::   " + r.verb)
 		req, err := http.NewRequest(r.verb, url, r.body)
+
 		if err != nil {
 			return err
 		}
@@ -643,6 +653,7 @@ func (r *Request) request(fn func(*http.Request, *http.Response)) error {
 			r.tryThrottle()
 		}
 		resp, err := client.Do(req)
+
 		updateURLMetrics(r, resp, err)
 		if err != nil {
 			r.backoffMgr.UpdateBackoff(r.URL(), err, 0)
@@ -715,6 +726,8 @@ func (r *Request) Do() Result {
 
 	var result Result
 	err := r.request(func(req *http.Request, resp *http.Response) {
+		temp, _ := json.Marshal(req)
+		log.Printf("########## Request:: \n%v\n", string(temp))
 		result = r.transformResponse(resp, req)
 	})
 	if err != nil {
@@ -746,9 +759,11 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 	var body []byte
 	if resp.Body != nil {
 		data, err := ioutil.ReadAll(resp.Body)
+
 		switch err.(type) {
 		case nil:
 			body = data
+			log.Println("Body in res  ##### ", string(data))
 		case http2.StreamError:
 			// This is trying to catch the scenario that the server may close the connection when sending the
 			// response body. This can be caused by server timeout due to a slow network connection.
